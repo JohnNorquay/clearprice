@@ -155,29 +155,23 @@ function groupByFacility(results) {
   return groups.sort((a, b) => a.total_estimate - b.total_estimate)
 }
 
-function ResultCard({ result, minRate, maxRate, yourCost, minYourCost, maxYourCost, showYourCost, procedureCategory }) {
+function ResultCard({ result, minRate, maxRate, yourCost, minYourCost, maxYourCost, showYourCost }) {
   const rate = parseFloat(result.negotiated_rate)
   const isLowest = showYourCost ? yourCost === minYourCost : rate === minRate
   const isHighest = showYourCost ? yourCost === maxYourCost : rate === maxRate
-  const relevant = isRelevantSpecialty(result.provider_taxonomy, procedureCategory)
 
   const displayRate = showYourCost ? yourCost : rate
   const displayMin = showYourCost ? minYourCost : minRate
   const displayMax = showYourCost ? maxYourCost : maxRate
 
   return (
-    <div className={`result-card ${isLowest && relevant ? 'card-lowest' : ''} ${isHighest ? 'card-highest' : ''} ${!relevant ? 'card-mismatch' : ''}`}>
-      {!relevant && (
-        <div className="specialty-warning">
-          Specialty may not match this procedure — verify before relying on this price
-        </div>
-      )}
+    <div className={`result-card ${isLowest ? 'card-lowest' : ''} ${isHighest ? 'card-highest' : ''}`}>
       <div className="result-header">
         <div className="provider-info">
           <h3 className="provider-name">{result.provider_name}</h3>
           <span className="provider-type">{result.provider_type === 'organization' ? 'Facility' : 'Individual'}</span>
           {result.provider_taxonomy && (
-            <span className={`provider-taxonomy ${!relevant ? 'taxonomy-mismatch' : ''}`}>{result.provider_taxonomy}</span>
+            <span className="provider-taxonomy">{result.provider_taxonomy}</span>
           )}
           {result.matched_facility && (
             <span className="facility-match">
@@ -347,9 +341,11 @@ function App() {
   // Get unique plan names for the filter dropdown
   const availablePlans = [...new Set(results.map(r => r.plan_name))].sort()
 
+  const procCategory = selectedProcInfo?.category
   const filteredResults = results.filter(r => {
     const rate = parseFloat(r.negotiated_rate)
     if (rate <= 0) return false // Exclude $0 rates (bundled payments)
+    if (!isRelevantSpecialty(r.provider_taxonomy, procCategory)) return false // Exclude mismatched specialties
     if (billingClassFilter !== 'all' && r.billing_class !== billingClassFilter) return false
     if (planFilter !== 'all' && r.plan_name !== planFilter) return false
     if (cityFilter && !r.city?.toLowerCase().includes(cityFilter.toLowerCase())) return false
@@ -567,7 +563,6 @@ function App() {
                     minYourCost={minYourCost}
                     maxYourCost={maxYourCost}
                     showYourCost={showYourCost}
-                    procedureCategory={selectedProcInfo?.category}
                   />
                 ))}
               </div>
