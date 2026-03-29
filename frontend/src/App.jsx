@@ -382,8 +382,10 @@ function App() {
   // Try to create grouped view (professional + matched facility = total)
   const grouped = billingClassFilter === 'all' ? groupByFacility(filteredResults) : null
 
-  // Use grouped results if available and we're showing "all", otherwise individual
-  const displayResults = grouped && grouped.length > 0 ? grouped : filteredResults
+  // Use grouped results if available — only show professionals WITH a matched facility
+  const displayResults = grouped && grouped.length > 0
+    ? grouped.filter(r => r.matched_facility)
+    : filteredResults
 
   // Compute your-cost for each result (use total_estimate for grouped results)
   const resultsWithCost = displayResults.map(r => {
@@ -552,11 +554,12 @@ function App() {
             {filteredResults.length > 0 && (() => {
               const hasInst = filteredResults.some(r => r.billing_class === 'institutional')
               const hasProf = filteredResults.some(r => r.billing_class === 'professional')
-              if (hasInst && hasProf) return (
+              const isGroupedView = billingClassFilter === 'all' && grouped && grouped.length > 0
+              if (isGroupedView) return (
                 <div className="dual-fee-notice">
-                  <strong>Two types of charges:</strong> Hospital procedures typically have both a <em>facility fee</em> (hospital's
-                  charge) and a <em>professional fee</em> (surgeon's charge). Use the filter above to view them separately,
-                  or look at both to estimate your total cost. Your total = facility fee + professional fee.
+                  <strong>Estimated total cost</strong> = surgeon's fee + facility fee, matched by health system.
+                  Some providers aren't shown here because we couldn't match them to a facility —
+                  use "Professional fees only" or "Facility fees only" to see all individual rates.
                 </div>
               )
               if (hasInst && !hasProf) return (
@@ -569,6 +572,12 @@ function App() {
                 <div className="dual-fee-notice notice-info">
                   These are <strong>professional fees only</strong> (surgeon/doctor charges). If performed at a hospital or
                   surgical center, there will also be a facility fee.
+                </div>
+              )
+              if (hasInst && hasProf) return (
+                <div className="dual-fee-notice">
+                  <strong>Two types of charges:</strong> Hospital procedures have both a <em>facility fee</em> and
+                  a <em>professional fee</em>. Use the filter above to view them separately.
                 </div>
               )
               return null
