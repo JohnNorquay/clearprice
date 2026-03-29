@@ -325,6 +325,7 @@ function App() {
   const [planFilter, setPlanFilter] = useState('all')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
+  const [cashPrices, setCashPrices] = useState([])
   const [showInsurance, setShowInsurance] = useState(false)
   const [insurance, setInsurance] = useState({
     deductibleRemaining: 2000,
@@ -342,12 +343,22 @@ function App() {
         const demoResults = getDemoData(procedureCode)
         setResults(demoResults)
       } else {
-        const { data, error } = await supabase.rpc('search_prices', {
-          p_billing_code: procedureCode,
-          p_limit: 2000,
-        })
-        if (error) throw error
-        setResults(data || [])
+        const [ratesRes, cashRes] = await Promise.all([
+          supabase.rpc('search_prices', { p_billing_code: procedureCode, p_limit: 2000 }),
+          supabase.from('hospital_prices')
+            .select('*, providers!inner(name, city, state, zip), procedures!inner(billing_code, short_name)')
+            .eq('procedures.billing_code', procedureCode),
+        ])
+        if (ratesRes.error) throw ratesRes.error
+        setResults(ratesRes.data || [])
+        setCashPrices((cashRes.data || []).map(r => ({
+          hospital: r.providers.name,
+          city: r.providers.city,
+          state: r.providers.state,
+          zip: r.providers.zip,
+          gross_charge: r.gross_charge,
+          cash_price: r.cash_price,
+        })))
       }
     } catch (err) {
       console.error('Search error:', err)
@@ -481,7 +492,7 @@ function App() {
           </div>
         ) : (
           <div className="results-section">
-            <button className="back-btn" onClick={() => { setSelectedProcedure(null); setResults([]); setPlanFilter('all'); setCityFilter('') }}>
+            <button className="back-btn" onClick={() => { setSelectedProcedure(null); setResults([]); setCashPrices([]); setPlanFilter('all'); setCityFilter('') }}>
               &larr; Back to procedures
             </button>
 
@@ -524,6 +535,47 @@ function App() {
               show={showInsurance}
               setShow={setShowInsurance}
             />
+
+            {cashPrices.length > 0 && (
+              <div className="cash-price-section">
+                <h3 className="cash-header">Cash / Self-Pay Alternative</h3>
+                <p className="cash-subtitle">
+                  These are what hospitals charge if you pay cash — no insurance needed.
+                  {showYourCost && ' Compare to your estimated insurance cost above.'}
+                  {!showYourCost && insurance.deductibleRemaining > 0 && ' If you haven\'t met your deductible, cash may be cheaper.'}
+                </p>
+                <div className="cash-cards">
+                  {cashPrices.map((cp, i) => {
+                    const lowestInsured = sortedResults.length > 0
+                      ? (showYourCost ? Math.min(...sortedResults.map(r => r.yourCost)) : Math.min(...sortedResults.map(r => parseFloat(r.negotiated_rate))))
+                      : null;
+                    const cashBeatsInsurance = lowestInsured && cp.cash_price < lowestInsured;
+                    return (
+                      <div key={i} className={`cash-card ${cashBeatsInsurance ? 'cash-wins' : ''}`}>
+                        <div className="cash-card-header">
+                          <div>
+                            <strong>{cp.hospital}</strong>
+                            <span className="cash-location">{cp.city}, {cp.state}</span>
+                          </div>
+                          <div className="cash-prices">
+                            <span className="cash-amount">{formatCurrency(cp.cash_price)}</span>
+                            <span className="cash-label">cash price</span>
+                            {cp.gross_charge && (
+                              <span className="gross-amount">{formatCurrency(cp.gross_charge)} list price</span>
+                            )}
+                          </div>
+                        </div>
+                        {cashBeatsInsurance && (
+                          <div className="cash-wins-callout">
+                            Cash price beats lowest insured rate ({formatCurrency(lowestInsured)}) by {formatCurrency(lowestInsured - cp.cash_price)}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="filters-row">
               <select

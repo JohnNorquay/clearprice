@@ -335,6 +335,93 @@
   text-decoration: line-through;
 }
 
+/* Cash Price Section */
+.cash-price-section {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.cash-header {
+  color: var(--accent-dark);
+  font-size: 1.05rem;
+  margin-bottom: 0.25rem;
+}
+
+.cash-subtitle {
+  color: var(--text-light);
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.cash-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.cash-card {
+  background: white;
+  border: 1px solid #d1fae5;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+
+.cash-card.cash-wins {
+  border-color: var(--accent);
+  border-width: 2px;
+}
+
+.cash-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.cash-location {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-light);
+}
+
+.cash-prices {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.cash-amount {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent-dark);
+}
+
+.cash-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+}
+
+.gross-amount {
+  font-size: 0.78rem;
+  color: var(--text-light);
+  text-decoration: line-through;
+}
+
+.cash-wins-callout {
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: #d1fae5;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent-dark);
+}
+
 /* Dual fee notice */
 .dual-fee-notice {
   background: #eaf2f8;
