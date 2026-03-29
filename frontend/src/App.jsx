@@ -31,6 +31,23 @@ const CATEGORIES = {
   maternity: 'Maternity',
 }
 
+// Keywords that indicate a provider's specialty is relevant to a procedure category
+const RELEVANT_SPECIALTIES = {
+  surgery: ['orthop', 'surg', 'hospital', 'medical center', 'acute care'],
+  imaging: ['radiol', 'imaging', 'diagnost', 'hospital', 'medical center', 'acute care', 'mri', 'clinic'],
+  lab: ['pathol', 'lab', 'clinical', 'hospital', 'medical center', 'acute care', 'clinic'],
+  office_visit: [], // All providers can have office visits
+  maternity: ['obstet', 'gynecol', 'ob/', 'midwif', 'nurse pract', 'hospital', 'medical center', 'family', 'acute care'],
+}
+
+function isRelevantSpecialty(taxonomy, category) {
+  if (!taxonomy || !category) return true // If we don't know, don't flag
+  const keywords = RELEVANT_SPECIALTIES[category]
+  if (!keywords || keywords.length === 0) return true // No filter for this category
+  const lower = taxonomy.toLowerCase()
+  return keywords.some(k => lower.includes(k))
+}
+
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -138,23 +155,29 @@ function groupByFacility(results) {
   return groups.sort((a, b) => a.total_estimate - b.total_estimate)
 }
 
-function ResultCard({ result, minRate, maxRate, yourCost, minYourCost, maxYourCost, showYourCost }) {
+function ResultCard({ result, minRate, maxRate, yourCost, minYourCost, maxYourCost, showYourCost, procedureCategory }) {
   const rate = parseFloat(result.negotiated_rate)
   const isLowest = showYourCost ? yourCost === minYourCost : rate === minRate
   const isHighest = showYourCost ? yourCost === maxYourCost : rate === maxRate
+  const relevant = isRelevantSpecialty(result.provider_taxonomy, procedureCategory)
 
   const displayRate = showYourCost ? yourCost : rate
   const displayMin = showYourCost ? minYourCost : minRate
   const displayMax = showYourCost ? maxYourCost : maxRate
 
   return (
-    <div className={`result-card ${isLowest ? 'card-lowest' : ''} ${isHighest ? 'card-highest' : ''}`}>
+    <div className={`result-card ${isLowest && relevant ? 'card-lowest' : ''} ${isHighest ? 'card-highest' : ''} ${!relevant ? 'card-mismatch' : ''}`}>
+      {!relevant && (
+        <div className="specialty-warning">
+          Specialty may not match this procedure — verify before relying on this price
+        </div>
+      )}
       <div className="result-header">
         <div className="provider-info">
           <h3 className="provider-name">{result.provider_name}</h3>
           <span className="provider-type">{result.provider_type === 'organization' ? 'Facility' : 'Individual'}</span>
           {result.provider_taxonomy && (
-            <span className="provider-taxonomy">{result.provider_taxonomy}</span>
+            <span className={`provider-taxonomy ${!relevant ? 'taxonomy-mismatch' : ''}`}>{result.provider_taxonomy}</span>
           )}
           {result.matched_facility && (
             <span className="facility-match">
@@ -333,20 +356,6 @@ function App() {
     return true
   })
 
-  // Compute stats on filtered results
-  const stats = (() => {
-    if (!filteredResults.length) return null
-    const rates = filteredResults.map(r => parseFloat(r.negotiated_rate))
-    const sorted = [...rates].sort((a, b) => a - b)
-    return {
-      min: sorted[0],
-      max: sorted[sorted.length - 1],
-      median: sorted[Math.floor(sorted.length / 2)],
-      count: sorted.length,
-      spread: sorted[sorted.length - 1] - sorted[0],
-    }
-  })()
-
   // Try to create grouped view (professional + matched facility = total)
   const grouped = billingClassFilter === 'all' ? groupByFacility(filteredResults) : null
 
@@ -361,6 +370,22 @@ function App() {
       yourCost: calculateYourCost(baseRate, insuranceParams),
     }
   })
+
+  // Compute stats on what's actually displayed (totals when grouped, individual otherwise)
+  const isGrouped = grouped && grouped.length > 0
+  const stats = (() => {
+    if (!resultsWithCost.length) return null
+    const rates = resultsWithCost.map(r => r.total_estimate || parseFloat(r.negotiated_rate))
+    const sorted = [...rates].sort((a, b) => a - b)
+    return {
+      min: sorted[0],
+      max: sorted[sorted.length - 1],
+      median: sorted[Math.floor(sorted.length / 2)],
+      count: sorted.length,
+      spread: sorted[sorted.length - 1] - sorted[0],
+      isGrouped,
+    }
+  })()
 
   // Sort by your-cost if personalized, otherwise by rate/total
   const sortedResults = showYourCost
@@ -439,8 +464,13 @@ function App() {
 
             {stats && (
               <div className="stats-bar">
+                {stats.isGrouped && (
+                  <div className="stat stat-full-width">
+                    <span className="stats-note">Showing estimated totals (professional + facility fee)</span>
+                  </div>
+                )}
                 <div className="stat">
-                  <span className="stat-label">Lowest</span>
+                  <span className="stat-label">Lowest{stats.isGrouped ? ' total' : ''}</span>
                   <span className="stat-value stat-low">{formatCurrency(stats.min)}</span>
                 </div>
                 <div className="stat">
@@ -448,7 +478,7 @@ function App() {
                   <span className="stat-value">{formatCurrency(stats.median)}</span>
                 </div>
                 <div className="stat">
-                  <span className="stat-label">Highest</span>
+                  <span className="stat-label">Highest{stats.isGrouped ? ' total' : ''}</span>
                   <span className="stat-value stat-high">{formatCurrency(stats.max)}</span>
                 </div>
                 <div className="stat">
@@ -537,6 +567,7 @@ function App() {
                     minYourCost={minYourCost}
                     maxYourCost={maxYourCost}
                     showYourCost={showYourCost}
+                    procedureCategory={selectedProcInfo?.category}
                   />
                 ))}
               </div>

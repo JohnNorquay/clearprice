@@ -167,6 +167,18 @@
   font-weight: 700;
 }
 
+.stat-full-width {
+  width: 100%;
+  flex-basis: 100%;
+}
+
+.stats-note {
+  font-size: 0.8rem;
+  color: var(--primary);
+  font-weight: 500;
+  font-style: italic;
+}
+
 .stat-low { color: var(--accent); }
 .stat-high { color: var(--danger); }
 .stat-spread { color: var(--warning); }
@@ -377,6 +389,26 @@
 .card-highest {
   border-left: 4px solid var(--danger);
   background: linear-gradient(90deg, var(--expensive) 0%, var(--card) 20%);
+}
+
+.card-mismatch {
+  opacity: 0.6;
+  border-left: 4px solid var(--warning);
+}
+
+.specialty-warning {
+  font-size: 0.78rem;
+  color: #856404;
+  background: #fff3cd;
+  padding: 0.35rem 0.6rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.taxonomy-mismatch {
+  color: var(--warning);
+  font-weight: 600;
 }
 
 .result-header {
