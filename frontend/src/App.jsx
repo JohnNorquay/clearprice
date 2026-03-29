@@ -44,8 +44,8 @@ const PROCEDURE_SPECIALTIES = {
   '43239': ['gastroenterol', 'internal medicine', 'general surgery', 'surgery', 'hospital', 'medical center', 'acute care', 'surgery center', 'surgical hospital', 'endoscop'],
   '45380': ['gastroenterol', 'internal medicine', 'general surgery', 'surgery', 'hospital', 'medical center', 'acute care', 'surgery center', 'surgical hospital', 'endoscop', 'colon', 'colorectal'],
   // Maternity - OB/GYN and facilities
-  '59400': ['obstetric', 'gynecol', 'midwif', 'hospital', 'medical center', 'acute care', 'family medicine', 'family practice'],
-  '59510': ['obstetric', 'gynecol', 'hospital', 'medical center', 'acute care'],
+  '59400': ['obstetric', 'gynecol', 'midwif', 'hospital', 'medical center', 'acute care', 'family medicine', 'family practice', 'surgical hospital', 'surgery center'],
+  '59510': ['obstetric', 'gynecol', 'hospital', 'medical center', 'acute care', 'surgical hospital', 'surgery center'],
 }
 
 // Category-level fallback for procedures without specific mappings
@@ -344,7 +344,7 @@ function App() {
       } else {
         const { data, error } = await supabase.rpc('search_prices', {
           p_billing_code: procedureCode,
-          p_limit: 500,
+          p_limit: 2000,
         })
         if (error) throw error
         setResults(data || [])
