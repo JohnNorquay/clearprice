@@ -195,6 +195,128 @@
   min-width: 200px;
 }
 
+/* Personalize Button */
+.personalize-btn {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #eaf2f8 0%, #d5f5e3 100%);
+  border: 1px dashed var(--primary-light);
+  border-radius: 8px;
+  color: var(--primary);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  transition: all 0.15s;
+}
+
+.personalize-btn:hover {
+  background: linear-gradient(135deg, #d4e6f1 0%, #abebc6 100%);
+  border-style: solid;
+}
+
+/* Insurance Panel */
+.insurance-panel {
+  background: var(--card);
+  border: 1px solid var(--primary-light);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.panel-header h3 {
+  color: var(--primary);
+  font-size: 1rem;
+}
+
+.panel-close {
+  background: none;
+  border: none;
+  color: var(--text-light);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.panel-subtitle {
+  color: var(--text-light);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.insurance-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.field label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: var(--text);
+}
+
+.input-group {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.input-group input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  font-size: 1rem;
+  outline: none;
+  width: 100%;
+}
+
+.input-prefix, .input-suffix {
+  padding: 0.5rem 0.6rem;
+  background: #f0f0f0;
+  color: var(--text-light);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.field-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-light);
+  margin-top: 0.25rem;
+}
+
+/* Dual price display */
+.price-dual {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.price-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent-dark);
+  font-weight: 600;
+}
+
+.price-negotiated {
+  font-size: 0.8rem;
+  color: var(--text-light);
+  text-decoration: line-through;
+}
+
 /* Result Cards */
 .results-list {
   display: flex;

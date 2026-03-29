@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { supabase, DEMO_MODE } from './supabase'
 import './App.css'
 
@@ -40,10 +40,42 @@ function formatCurrency(amount) {
   }).format(amount)
 }
 
+/**
+ * Calculate what the patient actually pays based on their benefit structure.
+ *
+ * deductibleRemaining: how much of the annual deductible they haven't met yet
+ * coinsuranceRate: patient's share after deductible (e.g., 0.20 for 80/20 plan)
+ * oopMaxRemaining: how much they have left before hitting out-of-pocket max
+ */
+function calculateYourCost(negotiatedRate, { deductibleRemaining = 0, coinsuranceRate = 0, oopMaxRemaining = Infinity }) {
+  if (deductibleRemaining <= 0 && coinsuranceRate <= 0) return 0
+
+  let patientOwes = 0
+  let remaining = negotiatedRate
+
+  // First: patient pays toward deductible
+  if (deductibleRemaining > 0) {
+    const deductiblePortion = Math.min(remaining, deductibleRemaining)
+    patientOwes += deductiblePortion
+    remaining -= deductiblePortion
+  }
+
+  // Then: patient pays coinsurance on the rest
+  if (remaining > 0 && coinsuranceRate > 0) {
+    patientOwes += remaining * coinsuranceRate
+  }
+
+  // Cap at OOP max remaining
+  if (oopMaxRemaining < Infinity) {
+    patientOwes = Math.min(patientOwes, oopMaxRemaining)
+  }
+
+  return Math.round(patientOwes * 100) / 100
+}
+
 function PriceBar({ rate, minRate, maxRate, isLowest, isHighest }) {
   const range = maxRate - minRate || 1
   const width = Math.max(5, ((rate - minRate) / range) * 100)
-
   return (
     <div className="price-bar-container">
       <div
@@ -54,9 +86,13 @@ function PriceBar({ rate, minRate, maxRate, isLowest, isHighest }) {
   )
 }
 
-function ResultCard({ result, minRate, maxRate }) {
-  const isLowest = result.negotiated_rate === minRate
-  const isHighest = result.negotiated_rate === maxRate
+function ResultCard({ result, minRate, maxRate, yourCost, minYourCost, maxYourCost, showYourCost }) {
+  const isLowest = showYourCost ? yourCost === minYourCost : result.negotiated_rate === minRate
+  const isHighest = showYourCost ? yourCost === maxYourCost : result.negotiated_rate === maxRate
+
+  const displayRate = showYourCost ? yourCost : result.negotiated_rate
+  const displayMin = showYourCost ? minYourCost : minRate
+  const displayMax = showYourCost ? maxYourCost : maxRate
 
   return (
     <div className={`result-card ${isLowest ? 'card-lowest' : ''} ${isHighest ? 'card-highest' : ''}`}>
@@ -69,7 +105,15 @@ function ResultCard({ result, minRate, maxRate }) {
           )}
         </div>
         <div className="price-section">
-          <span className="price">{formatCurrency(result.negotiated_rate)}</span>
+          {showYourCost ? (
+            <div className="price-dual">
+              <span className="price">{formatCurrency(yourCost)}</span>
+              <span className="price-label">your cost</span>
+              <span className="price-negotiated">{formatCurrency(result.negotiated_rate)} negotiated</span>
+            </div>
+          ) : (
+            <span className="price">{formatCurrency(result.negotiated_rate)}</span>
+          )}
           {isLowest && <span className="badge badge-savings">Lowest</span>}
           {isHighest && <span className="badge badge-expensive">Highest</span>}
         </div>
@@ -83,17 +127,84 @@ function ResultCard({ result, minRate, maxRate }) {
         <span className="insurer">{result.insurer_name} - {result.plan_name}</span>
       </div>
       <PriceBar
-        rate={result.negotiated_rate}
-        minRate={minRate}
-        maxRate={maxRate}
+        rate={displayRate}
+        minRate={displayMin}
+        maxRate={displayMax}
         isLowest={isLowest}
         isHighest={isHighest}
       />
-      {isLowest && maxRate > minRate && (
+      {isLowest && displayMax > displayRate && (
         <div className="savings-callout">
-          Save up to {formatCurrency(maxRate - minRate)} vs. highest price
+          Save up to {formatCurrency(displayMax - displayRate)} vs. highest price
         </div>
       )}
+    </div>
+  )
+}
+
+function InsurancePanel({ insurance, setInsurance, show, setShow }) {
+  if (!show) {
+    return (
+      <button className="personalize-btn" onClick={() => setShow(true)}>
+        Personalize: Enter your insurance details to see YOUR cost
+      </button>
+    )
+  }
+
+  return (
+    <div className="insurance-panel">
+      <div className="panel-header">
+        <h3>Your Insurance</h3>
+        <button className="panel-close" onClick={() => setShow(false)}>Hide</button>
+      </div>
+      <p className="panel-subtitle">
+        Enter your plan details to see what you'd actually pay out of pocket.
+      </p>
+      <div className="insurance-fields">
+        <div className="field">
+          <label>Deductible remaining this year</label>
+          <div className="input-group">
+            <span className="input-prefix">$</span>
+            <input
+              type="number"
+              min="0"
+              step="100"
+              value={insurance.deductibleRemaining}
+              onChange={(e) => setInsurance({ ...insurance, deductibleRemaining: parseFloat(e.target.value) || 0 })}
+            />
+          </div>
+          <span className="field-hint">How much of your deductible you haven't met yet</span>
+        </div>
+        <div className="field">
+          <label>Your coinsurance rate</label>
+          <div className="input-group">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="5"
+              value={insurance.coinsurancePct}
+              onChange={(e) => setInsurance({ ...insurance, coinsurancePct: parseFloat(e.target.value) || 0 })}
+            />
+            <span className="input-suffix">%</span>
+          </div>
+          <span className="field-hint">Your share after deductible (e.g., 20 for an 80/20 plan)</span>
+        </div>
+        <div className="field">
+          <label>Out-of-pocket max remaining</label>
+          <div className="input-group">
+            <span className="input-prefix">$</span>
+            <input
+              type="number"
+              min="0"
+              step="500"
+              value={insurance.oopMaxRemaining}
+              onChange={(e) => setInsurance({ ...insurance, oopMaxRemaining: parseFloat(e.target.value) || 0 })}
+            />
+          </div>
+          <span className="field-hint">Leave at 0 if you don't know (we won't cap)</span>
+        </div>
+      </div>
     </div>
   )
 }
@@ -106,6 +217,14 @@ function App() {
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [stats, setStats] = useState(null)
+  const [showInsurance, setShowInsurance] = useState(false)
+  const [insurance, setInsurance] = useState({
+    deductibleRemaining: 2000,
+    coinsurancePct: 20,
+    oopMaxRemaining: 0,
+  })
+
+  const showYourCost = showInsurance && (insurance.deductibleRemaining > 0 || insurance.coinsurancePct > 0)
 
   async function searchPrices(procedureCode) {
     setLoading(true)
@@ -113,7 +232,6 @@ function App() {
 
     try {
       if (DEMO_MODE) {
-        // Demo data from our actual parsed files
         const demoResults = getDemoData(procedureCode)
         setResults(demoResults)
         computeStats(demoResults)
@@ -121,7 +239,6 @@ function App() {
         const { data, error } = await supabase.rpc('search_prices', {
           p_billing_code: procedureCode,
           p_limit: 100,
-          ...(cityFilter ? { p_city: cityFilter } : {}),
         })
         if (error) throw error
         setResults(data || [])
@@ -136,21 +253,44 @@ function App() {
 
   function computeStats(data) {
     if (!data.length) { setStats(null); return }
-    const rates = data.map(r => r.negotiated_rate)
-    const min = Math.min(...rates)
-    const max = Math.max(...rates)
-    const median = rates.sort((a, b) => a - b)[Math.floor(rates.length / 2)]
-    setStats({ min, max, median, count: rates.length, spread: max - min })
+    const rates = data.map(r => parseFloat(r.negotiated_rate))
+    const sorted = [...rates].sort((a, b) => a - b)
+    setStats({
+      min: sorted[0],
+      max: sorted[sorted.length - 1],
+      median: sorted[Math.floor(sorted.length / 2)],
+      count: sorted.length,
+      spread: sorted[sorted.length - 1] - sorted[0],
+    })
+  }
+
+  const insuranceParams = {
+    deductibleRemaining: insurance.deductibleRemaining,
+    coinsuranceRate: insurance.coinsurancePct / 100,
+    oopMaxRemaining: insurance.oopMaxRemaining > 0 ? insurance.oopMaxRemaining : Infinity,
   }
 
   const filteredResults = results.filter(r => {
     if (billingClassFilter !== 'all' && r.billing_class !== billingClassFilter) return false
     if (cityFilter && !r.city?.toLowerCase().includes(cityFilter.toLowerCase())) return false
     return true
-  }).sort((a, b) => a.negotiated_rate - b.negotiated_rate)
+  })
 
-  const minRate = filteredResults.length ? Math.min(...filteredResults.map(r => r.negotiated_rate)) : 0
-  const maxRate = filteredResults.length ? Math.max(...filteredResults.map(r => r.negotiated_rate)) : 0
+  // Compute your-cost for each result
+  const resultsWithCost = filteredResults.map(r => ({
+    ...r,
+    yourCost: calculateYourCost(parseFloat(r.negotiated_rate), insuranceParams),
+  }))
+
+  // Sort by your-cost if personalized, otherwise by negotiated rate
+  const sortedResults = showYourCost
+    ? [...resultsWithCost].sort((a, b) => a.yourCost - b.yourCost)
+    : [...resultsWithCost].sort((a, b) => parseFloat(a.negotiated_rate) - parseFloat(b.negotiated_rate))
+
+  const minRate = sortedResults.length ? Math.min(...sortedResults.map(r => parseFloat(r.negotiated_rate))) : 0
+  const maxRate = sortedResults.length ? Math.max(...sortedResults.map(r => parseFloat(r.negotiated_rate))) : 0
+  const minYourCost = sortedResults.length ? Math.min(...sortedResults.map(r => r.yourCost)) : 0
+  const maxYourCost = sortedResults.length ? Math.max(...sortedResults.map(r => r.yourCost)) : 0
 
   const proceduresByCategory = PROCEDURES.filter(p =>
     !selectedCategory || p.category === selectedCategory
@@ -227,7 +367,7 @@ function App() {
                   <span className="stat-value stat-high">{formatCurrency(stats.max)}</span>
                 </div>
                 <div className="stat">
-                  <span className="stat-label">Price Spread</span>
+                  <span className="stat-label">Spread</span>
                   <span className="stat-value stat-spread">{formatCurrency(stats.spread)}</span>
                 </div>
                 <div className="stat">
@@ -236,6 +376,13 @@ function App() {
                 </div>
               </div>
             )}
+
+            <InsurancePanel
+              insurance={insurance}
+              setInsurance={setInsurance}
+              show={showInsurance}
+              setShow={setShowInsurance}
+            />
 
             <div className="filters-row">
               <input
@@ -258,10 +405,19 @@ function App() {
 
             {loading ? (
               <div className="loading">Searching prices...</div>
-            ) : filteredResults.length > 0 ? (
+            ) : sortedResults.length > 0 ? (
               <div className="results-list">
-                {filteredResults.map((r, i) => (
-                  <ResultCard key={i} result={r} minRate={minRate} maxRate={maxRate} />
+                {sortedResults.map((r, i) => (
+                  <ResultCard
+                    key={i}
+                    result={r}
+                    minRate={minRate}
+                    maxRate={maxRate}
+                    yourCost={r.yourCost}
+                    minYourCost={minYourCost}
+                    maxYourCost={maxYourCost}
+                    showYourCost={showYourCost}
+                  />
                 ))}
               </div>
             ) : (
@@ -298,18 +454,10 @@ function getDemoData(code) {
       { provider_name: 'RUSTY BRAND', provider_type: 'individual', provider_taxonomy: 'Orthopaedic Surgery, Adult Reconstructive', city: 'EAU CLAIRE', state: 'WI', zip: '54702', insurer_name: 'Medica', plan_name: 'Medica Choice Passport-WI', negotiated_rate: 13308.01, billing_class: 'professional', setting: '' },
       { provider_name: 'DAVID NORDIN', provider_type: 'individual', provider_taxonomy: 'Orthopaedic Surgery', city: 'SAINT CROIX FALLS', state: 'WI', zip: '54024', insurer_name: 'Medica', plan_name: 'Medica Choice Passport-WI', negotiated_rate: 2291.93, billing_class: 'professional', setting: '' },
       { provider_name: 'CONNOR OLSON', provider_type: 'individual', provider_taxonomy: 'Athletic Trainer', city: 'ALTOONA', state: 'WI', zip: '54720', insurer_name: 'Medica', plan_name: 'Medica Choice Passport-WI', negotiated_rate: 1908.9, billing_class: 'professional', setting: '' },
-      { provider_name: 'MOLLY WILLENBRING', provider_type: 'individual', provider_taxonomy: 'Nurse Practitioner, Women\'s Health', city: 'LA CROSSE', state: 'WI', zip: '54601', insurer_name: 'Medica', plan_name: 'Medica Choice Passport-WI', negotiated_rate: 1846.10, billing_class: 'professional', setting: '' },
-      { provider_name: 'ASHLEY OBRIEN', provider_type: 'individual', provider_taxonomy: 'Physician Assistant', city: 'ALTOONA', state: 'WI', zip: '54720', insurer_name: 'Medica', plan_name: 'Medica Choice Passport-WI', negotiated_rate: 1297.29, billing_class: 'professional', setting: '' },
       { provider_name: 'ASHLEY REGIMBAL', provider_type: 'individual', provider_taxonomy: 'Nurse Practitioner, Family', city: 'CUMBERLAND', state: 'WI', zip: '54829', insurer_name: 'Medica', plan_name: 'Medica Choice Passport-WI', negotiated_rate: 305.60, billing_class: 'professional', setting: '' },
     ],
-    '45380': [
-      { provider_name: 'GUNDERSEN LUTHERAN MEDICAL CENTER', provider_type: 'organization', provider_taxonomy: 'General Acute Care', city: 'LA CROSSE', state: 'WI', zip: '54601', insurer_name: 'Medica', plan_name: 'Medica Choice Passport-WI', negotiated_rate: 3245.50, billing_class: 'institutional', setting: 'outpatient' },
-      { provider_name: 'OAK LEAF SURGICAL HOSPITAL', provider_type: 'organization', provider_taxonomy: 'General Acute Care', city: 'ALTOONA', state: 'WI', zip: '54720', insurer_name: 'Medica', plan_name: 'Medica Choice Passport-WI', negotiated_rate: 1890.00, billing_class: 'institutional', setting: 'outpatient' },
-      { provider_name: 'MAYO CLINIC HEALTH SYSTEM-NW WI', provider_type: 'organization', provider_taxonomy: 'General Acute Care', city: 'EAU CLAIRE', state: 'WI', zip: '54703', insurer_name: 'Medica', plan_name: 'Medica Choice Passport-WI', negotiated_rate: 2780.00, billing_class: 'institutional', setting: 'outpatient' },
-    ],
   }
-
-  return demoSets[code] || demoSets['27447'] // Fall back to knee replacement data
+  return demoSets[code] || demoSets['27447']
 }
 
 export default App
