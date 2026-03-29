@@ -372,7 +372,9 @@ function App() {
   const filteredResults = results.filter(r => {
     const rate = parseFloat(r.negotiated_rate)
     if (rate <= 0) return false
-    // Don't filter facilities by specialty — institutional billing class = facility fee regardless of NPI taxonomy
+    // Facility fees: only show actual organizations (hospitals/surgery centers), not individuals mislabeled as institutional
+    if (r.billing_class === 'institutional' && r.provider_type === 'individual') return false
+    // Professional fees: filter by relevant specialty
     if (r.billing_class !== 'institutional' && !isRelevantProvider(r.provider_taxonomy, procCode, procCategory)) return false
     if (billingClassFilter !== 'all' && r.billing_class !== billingClassFilter) return false
     if (planFilter !== 'all' && r.plan_name !== planFilter) return false
