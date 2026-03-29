@@ -372,7 +372,8 @@ function App() {
   const filteredResults = results.filter(r => {
     const rate = parseFloat(r.negotiated_rate)
     if (rate <= 0) return false
-    if (!isRelevantProvider(r.provider_taxonomy, procCode, procCategory)) return false
+    // Don't filter facilities by specialty — institutional billing class = facility fee regardless of NPI taxonomy
+    if (r.billing_class !== 'institutional' && !isRelevantProvider(r.provider_taxonomy, procCode, procCategory)) return false
     if (billingClassFilter !== 'all' && r.billing_class !== billingClassFilter) return false
     if (planFilter !== 'all' && r.plan_name !== planFilter) return false
     if (cityFilter && !r.city?.toLowerCase().includes(cityFilter.toLowerCase())) return false
