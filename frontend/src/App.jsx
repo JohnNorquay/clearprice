@@ -40,11 +40,20 @@ const RELEVANT_SPECIALTIES = {
   maternity: ['obstet', 'gynecol', 'ob/', 'midwif', 'nurse pract', 'hospital', 'medical center', 'family', 'acute care'],
 }
 
+// Specialties that should be excluded from surgical procedures
+const SURGERY_EXCLUDED = ['podiatr', 'foot', 'ankle', 'optom', 'optic', 'chiro', 'dent', 'acupunc', 'massage', 'diet', 'nutrition', 'speech', 'audiol', 'social work', 'counsel', 'psychol', 'behav', 'occupational therapy', 'physical therapy', 'home health', 'pharmacy', 'ambulance']
+
 function isRelevantSpecialty(taxonomy, category) {
   if (!taxonomy || !category) return true // If we don't know, don't flag
   const keywords = RELEVANT_SPECIALTIES[category]
   if (!keywords || keywords.length === 0) return true // No filter for this category
   const lower = taxonomy.toLowerCase()
+
+  // For surgery: check exclusion list first (more reliable than inclusion)
+  if (category === 'surgery') {
+    if (SURGERY_EXCLUDED.some(ex => lower.includes(ex))) return false
+  }
+
   return keywords.some(k => lower.includes(k))
 }
 
@@ -338,6 +347,8 @@ function App() {
     oopMaxRemaining: insurance.oopMaxRemaining > 0 ? insurance.oopMaxRemaining : Infinity,
   }
 
+  const selectedProcInfo = PROCEDURES.find(p => p.code === selectedProcedure)
+
   // Get unique plan names for the filter dropdown
   const availablePlans = [...new Set(results.map(r => r.plan_name))].sort()
 
@@ -401,8 +412,6 @@ function App() {
   const proceduresByCategory = PROCEDURES.filter(p =>
     !selectedCategory || p.category === selectedCategory
   )
-
-  const selectedProcInfo = PROCEDURES.find(p => p.code === selectedProcedure)
 
   return (
     <div className="app">
