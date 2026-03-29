@@ -31,30 +31,45 @@ const CATEGORIES = {
   maternity: 'Maternity',
 }
 
-// Keywords that indicate a provider's specialty is relevant to a procedure category
-const RELEVANT_SPECIALTIES = {
-  surgery: ['orthop', 'surg', 'hospital', 'medical center', 'acute care'],
-  imaging: ['radiol', 'imaging', 'diagnost', 'hospital', 'medical center', 'acute care', 'mri', 'clinic'],
-  lab: ['pathol', 'lab', 'clinical', 'hospital', 'medical center', 'acute care', 'clinic'],
-  office_visit: [], // All providers can have office visits
-  maternity: ['obstet', 'gynecol', 'ob/', 'midwif', 'nurse pract', 'hospital', 'medical center', 'family', 'acute care'],
+/**
+ * Procedure-specific allowed specialties (strict inclusion).
+ * If a procedure has an entry here, ONLY these specialties are shown.
+ * Providers with no taxonomy are excluded from strict-filtered procedures.
+ */
+const PROCEDURE_SPECIALTIES = {
+  // Knee procedures - only ortho surgeons and facilities
+  '27447': ['orthopaedic', 'orthopedic', 'hospital', 'medical center', 'acute care', 'surgery center', 'surgical hospital'],
+  '29881': ['orthopaedic', 'orthopedic', 'hospital', 'medical center', 'acute care', 'surgery center', 'surgical hospital'],
+  // GI procedures - gastro, general surgery, facilities
+  '43239': ['gastroenterol', 'internal medicine', 'general surgery', 'surgery', 'hospital', 'medical center', 'acute care', 'surgery center', 'surgical hospital', 'endoscop'],
+  '45380': ['gastroenterol', 'internal medicine', 'general surgery', 'surgery', 'hospital', 'medical center', 'acute care', 'surgery center', 'surgical hospital', 'endoscop', 'colon', 'colorectal'],
+  // Maternity - OB/GYN and facilities
+  '59400': ['obstetric', 'gynecol', 'midwif', 'hospital', 'medical center', 'acute care', 'family medicine', 'family practice'],
+  '59510': ['obstetric', 'gynecol', 'hospital', 'medical center', 'acute care'],
 }
 
-// Specialties that should be excluded from surgical procedures
-const SURGERY_EXCLUDED = ['podiatr', 'foot', 'ankle', 'optom', 'optic', 'chiro', 'dent', 'acupunc', 'massage', 'diet', 'nutrition', 'speech', 'audiol', 'social work', 'counsel', 'psychol', 'behav', 'occupational therapy', 'physical therapy', 'home health', 'pharmacy', 'ambulance']
+// Category-level fallback for procedures without specific mappings
+const CATEGORY_SPECIALTIES = {
+  imaging: ['radiol', 'imaging', 'diagnost', 'hospital', 'medical center', 'acute care', 'mri', 'clinic', 'x-ray'],
+  lab: ['pathol', 'lab', 'clinical', 'hospital', 'medical center', 'acute care', 'clinic'],
+  office_visit: null, // No filter — all providers can have office visits
+}
 
-function isRelevantSpecialty(taxonomy, category) {
-  if (!taxonomy || !category) return true // If we don't know, don't flag
-  const keywords = RELEVANT_SPECIALTIES[category]
-  if (!keywords || keywords.length === 0) return true // No filter for this category
-  const lower = taxonomy.toLowerCase()
-
-  // For surgery: check exclusion list first (more reliable than inclusion)
-  if (category === 'surgery') {
-    if (SURGERY_EXCLUDED.some(ex => lower.includes(ex))) return false
+function isRelevantProvider(taxonomy, procedureCode, category) {
+  // Check procedure-specific list first
+  const procKeywords = PROCEDURE_SPECIALTIES[procedureCode]
+  if (procKeywords) {
+    if (!taxonomy) return false // No taxonomy = excluded for strict-filtered procedures
+    const lower = taxonomy.toLowerCase()
+    return procKeywords.some(k => lower.includes(k))
   }
 
-  return keywords.some(k => lower.includes(k))
+  // Fall back to category-level filter
+  const catKeywords = CATEGORY_SPECIALTIES[category]
+  if (catKeywords === null || catKeywords === undefined) return true // No filter
+  if (!taxonomy) return true // Allow unknown for non-strict categories
+  const lower = taxonomy.toLowerCase()
+  return catKeywords.some(k => lower.includes(k))
 }
 
 function formatCurrency(amount) {
@@ -353,10 +368,11 @@ function App() {
   const availablePlans = [...new Set(results.map(r => r.plan_name))].sort()
 
   const procCategory = selectedProcInfo?.category
+  const procCode = selectedProcInfo?.code
   const filteredResults = results.filter(r => {
     const rate = parseFloat(r.negotiated_rate)
-    if (rate <= 0) return false // Exclude $0 rates (bundled payments)
-    if (!isRelevantSpecialty(r.provider_taxonomy, procCategory)) return false // Exclude mismatched specialties
+    if (rate <= 0) return false
+    if (!isRelevantProvider(r.provider_taxonomy, procCode, procCategory)) return false
     if (billingClassFilter !== 'all' && r.billing_class !== billingClassFilter) return false
     if (planFilter !== 'all' && r.plan_name !== planFilter) return false
     if (cityFilter && !r.city?.toLowerCase().includes(cityFilter.toLowerCase())) return false
