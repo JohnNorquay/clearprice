@@ -120,6 +120,7 @@ async function main() {
       city: row.provider_city || null,
       state: row.provider_state || 'WI',
       zip: row.provider_zip || null,
+      tin: row.provider_tin || null,
     });
 
     // Queue rate insert

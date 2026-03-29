@@ -407,6 +407,27 @@
   color: var(--text-light);
 }
 
+.facility-match {
+  font-size: 0.82rem;
+  color: var(--primary);
+  background: #eaf2f8;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  margin-top: 0.2rem;
+  display: inline-block;
+}
+
+.match-approx {
+  font-size: 0.72rem;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+.price-breakdown {
+  font-size: 0.78rem;
+  color: var(--text-light);
+}
+
 .price-section {
   display: flex;
   align-items: center;

@@ -86,11 +86,64 @@ function PriceBar({ rate, minRate, maxRate, isLowest, isHighest }) {
   )
 }
 
-function ResultCard({ result, minRate, maxRate, yourCost, minYourCost, maxYourCost, showYourCost }) {
-  const isLowest = showYourCost ? yourCost === minYourCost : result.negotiated_rate === minRate
-  const isHighest = showYourCost ? yourCost === maxYourCost : result.negotiated_rate === maxRate
+/**
+ * Group results by facility using TIN matching, then by city as fallback.
+ * Returns array of { facility, facilityRate, professionals: [{ ...result, totalEstimate }] }
+ */
+function groupByFacility(results) {
+  const facilities = results.filter(r => r.billing_class === 'institutional')
+  const professionals = results.filter(r => r.billing_class === 'professional')
 
-  const displayRate = showYourCost ? yourCost : result.negotiated_rate
+  if (facilities.length === 0 || professionals.length === 0) return null
+
+  // Build TIN -> facility mapping
+  const tinFacility = new Map()
+  const cityFacility = new Map()
+  for (const f of facilities) {
+    if (f.provider_tin) tinFacility.set(f.provider_tin, f)
+    const key = (f.city || '').toUpperCase()
+    if (!cityFacility.has(key)) cityFacility.set(key, [])
+    cityFacility.get(key).push(f)
+  }
+
+  const groups = []
+  for (const prof of professionals) {
+    // Try TIN match first
+    const tinMatch = prof.provider_tin ? tinFacility.get(prof.provider_tin) : null
+    // Fall back to city match
+    const cityMatches = cityFacility.get((prof.city || '').toUpperCase()) || []
+    const facility = tinMatch || (cityMatches.length > 0 ? cityMatches[0] : null)
+
+    if (facility) {
+      const facilityRate = parseFloat(facility.negotiated_rate)
+      const profRate = parseFloat(prof.negotiated_rate)
+      groups.push({
+        ...prof,
+        matched_facility: facility.provider_name,
+        matched_facility_rate: facilityRate,
+        total_estimate: facilityRate + profRate,
+        match_type: tinMatch ? 'tin' : 'city',
+      })
+    } else {
+      groups.push({
+        ...prof,
+        matched_facility: null,
+        matched_facility_rate: 0,
+        total_estimate: parseFloat(prof.negotiated_rate),
+        match_type: 'none',
+      })
+    }
+  }
+
+  return groups.sort((a, b) => a.total_estimate - b.total_estimate)
+}
+
+function ResultCard({ result, minRate, maxRate, yourCost, minYourCost, maxYourCost, showYourCost }) {
+  const rate = parseFloat(result.negotiated_rate)
+  const isLowest = showYourCost ? yourCost === minYourCost : rate === minRate
+  const isHighest = showYourCost ? yourCost === maxYourCost : rate === maxRate
+
+  const displayRate = showYourCost ? yourCost : rate
   const displayMin = showYourCost ? minYourCost : minRate
   const displayMax = showYourCost ? maxYourCost : maxRate
 
@@ -103,16 +156,30 @@ function ResultCard({ result, minRate, maxRate, yourCost, minYourCost, maxYourCo
           {result.provider_taxonomy && (
             <span className="provider-taxonomy">{result.provider_taxonomy}</span>
           )}
+          {result.matched_facility && (
+            <span className="facility-match">
+              at {result.matched_facility} (facility fee: {formatCurrency(result.matched_facility_rate)})
+              {result.match_type === 'city' && <span className="match-approx"> *estimated by city</span>}
+            </span>
+          )}
         </div>
         <div className="price-section">
-          {showYourCost ? (
+          {result.total_estimate && result.matched_facility ? (
+            <div className="price-dual">
+              <span className="price">{showYourCost ? formatCurrency(yourCost) : formatCurrency(result.total_estimate)}</span>
+              <span className="price-label">{showYourCost ? 'your est. total' : 'est. total'}</span>
+              <span className="price-breakdown">
+                {formatCurrency(rate)} prof + {formatCurrency(result.matched_facility_rate)} facility
+              </span>
+            </div>
+          ) : showYourCost ? (
             <div className="price-dual">
               <span className="price">{formatCurrency(yourCost)}</span>
               <span className="price-label">your cost</span>
-              <span className="price-negotiated">{formatCurrency(result.negotiated_rate)} negotiated</span>
+              <span className="price-negotiated">{formatCurrency(rate)} negotiated</span>
             </div>
           ) : (
-            <span className="price">{formatCurrency(result.negotiated_rate)}</span>
+            <span className="price">{formatCurrency(rate)}</span>
           )}
           {isLowest && <span className="badge badge-savings">Lowest</span>}
           {isHighest && <span className="badge badge-expensive">Highest</span>}
@@ -280,19 +347,33 @@ function App() {
     }
   })()
 
-  // Compute your-cost for each result
-  const resultsWithCost = filteredResults.map(r => ({
-    ...r,
-    yourCost: calculateYourCost(parseFloat(r.negotiated_rate), insuranceParams),
-  }))
+  // Try to create grouped view (professional + matched facility = total)
+  const grouped = billingClassFilter === 'all' ? groupByFacility(filteredResults) : null
 
-  // Sort by your-cost if personalized, otherwise by negotiated rate
+  // Use grouped results if available and we're showing "all", otherwise individual
+  const displayResults = grouped && grouped.length > 0 ? grouped : filteredResults
+
+  // Compute your-cost for each result (use total_estimate for grouped results)
+  const resultsWithCost = displayResults.map(r => {
+    const baseRate = r.total_estimate || parseFloat(r.negotiated_rate)
+    return {
+      ...r,
+      yourCost: calculateYourCost(baseRate, insuranceParams),
+    }
+  })
+
+  // Sort by your-cost if personalized, otherwise by rate/total
   const sortedResults = showYourCost
     ? [...resultsWithCost].sort((a, b) => a.yourCost - b.yourCost)
-    : [...resultsWithCost].sort((a, b) => parseFloat(a.negotiated_rate) - parseFloat(b.negotiated_rate))
+    : [...resultsWithCost].sort((a, b) => {
+        const aRate = a.total_estimate || parseFloat(a.negotiated_rate)
+        const bRate = b.total_estimate || parseFloat(b.negotiated_rate)
+        return aRate - bRate
+      })
 
-  const minRate = sortedResults.length ? Math.min(...sortedResults.map(r => parseFloat(r.negotiated_rate))) : 0
-  const maxRate = sortedResults.length ? Math.max(...sortedResults.map(r => parseFloat(r.negotiated_rate))) : 0
+  const rateAccessor = (r) => r.total_estimate || parseFloat(r.negotiated_rate)
+  const minRate = sortedResults.length ? Math.min(...sortedResults.map(rateAccessor)) : 0
+  const maxRate = sortedResults.length ? Math.max(...sortedResults.map(rateAccessor)) : 0
   const minYourCost = sortedResults.length ? Math.min(...sortedResults.map(r => r.yourCost)) : 0
   const maxYourCost = sortedResults.length ? Math.max(...sortedResults.map(r => r.yourCost)) : 0
 
