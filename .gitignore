@@ -1,0 +1,15 @@
+node_modules/
+.env
+.env.local
+dist/
+.vercel/
+__pycache__/
+*.pyc
+.venv/
+data/raw/
+data/temp/
+data/parsed/*.csv
+data/parsed/*.json
+*.gz
+*.json.gz
+*.py

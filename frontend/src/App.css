@@ -1,0 +1,362 @@
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  color: white;
+  padding: 2rem;
+  text-align: center;
+}
+
+.header h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.tagline {
+  font-size: 1.1rem;
+  opacity: 0.9;
+  margin-top: 0.25rem;
+}
+
+/* Main */
+.main {
+  flex: 1;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  width: 100%;
+}
+
+/* Search Section */
+.search-section h2 {
+  font-size: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.search-subtitle {
+  color: var(--text-light);
+  margin-bottom: 1.5rem;
+  max-width: 600px;
+}
+
+.category-filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.cat-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 2rem;
+  background: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.15s;
+}
+
+.cat-btn:hover {
+  border-color: var(--primary-light);
+  color: var(--primary-light);
+}
+
+.cat-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.procedure-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+}
+
+.procedure-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 1rem 1.25rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.procedure-card:hover {
+  border-color: var(--primary-light);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+}
+
+.proc-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.proc-code {
+  color: var(--text-light);
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
+/* Results Section */
+.results-section {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: var(--primary-light);
+  cursor: pointer;
+  font-size: 0.95rem;
+  padding: 0.25rem 0;
+  margin-bottom: 0.5rem;
+}
+
+.back-btn:hover {
+  text-decoration: underline;
+}
+
+.proc-code-label {
+  color: var(--text-light);
+  margin-bottom: 1rem;
+}
+
+/* Stats Bar */
+.stats-bar {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  background: var(--card);
+  padding: 1.25rem 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-light);
+}
+
+.stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.stat-low { color: var(--accent); }
+.stat-high { color: var(--danger); }
+.stat-spread { color: var(--warning); }
+
+/* Filters */
+.filters-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.city-input, .class-select {
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: white;
+}
+
+.city-input {
+  flex: 1;
+  max-width: 250px;
+}
+
+.class-select {
+  min-width: 200px;
+}
+
+/* Result Cards */
+.results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.result-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  transition: box-shadow 0.15s;
+}
+
+.result-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.card-lowest {
+  border-left: 4px solid var(--accent);
+  background: linear-gradient(90deg, var(--savings) 0%, var(--card) 20%);
+}
+
+.card-highest {
+  border-left: 4px solid var(--danger);
+  background: linear-gradient(90deg, var(--expensive) 0%, var(--card) 20%);
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.provider-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.provider-name {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.provider-type {
+  font-size: 0.8rem;
+  color: var(--text-light);
+}
+
+.provider-taxonomy {
+  font-size: 0.8rem;
+  color: var(--text-light);
+}
+
+.price-section {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.price {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-savings {
+  background: var(--accent);
+  color: white;
+}
+
+.badge-expensive {
+  background: var(--danger);
+  color: white;
+}
+
+.result-details {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-light);
+}
+
+/* Price Bar */
+.price-bar-container {
+  margin-top: 0.5rem;
+  height: 4px;
+  background: #eee;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.price-bar {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--border);
+  transition: width 0.3s ease;
+}
+
+.price-bar.lowest { background: var(--accent); }
+.price-bar.highest { background: var(--danger); }
+
+.savings-callout {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent-dark);
+}
+
+/* Loading */
+.loading {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-light);
+  font-size: 1.1rem;
+}
+
+.no-results {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-light);
+}
+
+/* Footer */
+.footer {
+  background: var(--text);
+  color: #bbb;
+  padding: 2rem;
+  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.footer-note {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #888;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .header h1 { font-size: 1.75rem; }
+  .stats-bar { gap: 1rem; }
+  .stat-value { font-size: 1rem; }
+  .result-header { flex-direction: column; }
+  .price-section { align-self: flex-end; }
+  .filters-row { flex-direction: column; }
+  .city-input { max-width: none; }
+  .procedure-grid { grid-template-columns: 1fr; }
+}
