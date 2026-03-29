@@ -214,9 +214,9 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [cityFilter, setCityFilter] = useState('')
   const [billingClassFilter, setBillingClassFilter] = useState('all')
+  const [planFilter, setPlanFilter] = useState('all')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
-  const [stats, setStats] = useState(null)
   const [showInsurance, setShowInsurance] = useState(false)
   const [insurance, setInsurance] = useState({
     deductibleRemaining: 2000,
@@ -229,20 +229,17 @@ function App() {
   async function searchPrices(procedureCode) {
     setLoading(true)
     setSelectedProcedure(procedureCode)
-
     try {
       if (DEMO_MODE) {
         const demoResults = getDemoData(procedureCode)
         setResults(demoResults)
-        computeStats(demoResults)
       } else {
         const { data, error } = await supabase.rpc('search_prices', {
           p_billing_code: procedureCode,
-          p_limit: 100,
+          p_limit: 500,
         })
         if (error) throw error
         setResults(data || [])
-        computeStats(data || [])
       }
     } catch (err) {
       console.error('Search error:', err)
@@ -251,30 +248,37 @@ function App() {
     setLoading(false)
   }
 
-  function computeStats(data) {
-    if (!data.length) { setStats(null); return }
-    const rates = data.map(r => parseFloat(r.negotiated_rate))
-    const sorted = [...rates].sort((a, b) => a - b)
-    setStats({
-      min: sorted[0],
-      max: sorted[sorted.length - 1],
-      median: sorted[Math.floor(sorted.length / 2)],
-      count: sorted.length,
-      spread: sorted[sorted.length - 1] - sorted[0],
-    })
-  }
-
   const insuranceParams = {
     deductibleRemaining: insurance.deductibleRemaining,
     coinsuranceRate: insurance.coinsurancePct / 100,
     oopMaxRemaining: insurance.oopMaxRemaining > 0 ? insurance.oopMaxRemaining : Infinity,
   }
 
+  // Get unique plan names for the filter dropdown
+  const availablePlans = [...new Set(results.map(r => r.plan_name))].sort()
+
   const filteredResults = results.filter(r => {
+    const rate = parseFloat(r.negotiated_rate)
+    if (rate <= 0) return false // Exclude $0 rates (bundled payments)
     if (billingClassFilter !== 'all' && r.billing_class !== billingClassFilter) return false
+    if (planFilter !== 'all' && r.plan_name !== planFilter) return false
     if (cityFilter && !r.city?.toLowerCase().includes(cityFilter.toLowerCase())) return false
     return true
   })
+
+  // Compute stats on filtered results
+  const stats = (() => {
+    if (!filteredResults.length) return null
+    const rates = filteredResults.map(r => parseFloat(r.negotiated_rate))
+    const sorted = [...rates].sort((a, b) => a - b)
+    return {
+      min: sorted[0],
+      max: sorted[sorted.length - 1],
+      median: sorted[Math.floor(sorted.length / 2)],
+      count: sorted.length,
+      spread: sorted[sorted.length - 1] - sorted[0],
+    }
+  })()
 
   // Compute your-cost for each result
   const resultsWithCost = filteredResults.map(r => ({
@@ -345,7 +349,7 @@ function App() {
           </div>
         ) : (
           <div className="results-section">
-            <button className="back-btn" onClick={() => { setSelectedProcedure(null); setResults([]); setStats(null) }}>
+            <button className="back-btn" onClick={() => { setSelectedProcedure(null); setResults([]); setPlanFilter('all'); setCityFilter('') }}>
               &larr; Back to procedures
             </button>
 
@@ -385,6 +389,16 @@ function App() {
             />
 
             <div className="filters-row">
+              <select
+                value={planFilter}
+                onChange={(e) => setPlanFilter(e.target.value)}
+                className="plan-select"
+              >
+                <option value="all">All insurers / plans ({availablePlans.length})</option>
+                {availablePlans.map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
               <input
                 type="text"
                 placeholder="Filter by city..."
@@ -402,6 +416,31 @@ function App() {
                 <option value="professional">Professional fees only</option>
               </select>
             </div>
+
+            {filteredResults.length > 0 && (() => {
+              const hasInst = filteredResults.some(r => r.billing_class === 'institutional')
+              const hasProf = filteredResults.some(r => r.billing_class === 'professional')
+              if (hasInst && hasProf) return (
+                <div className="dual-fee-notice">
+                  <strong>Two types of charges:</strong> Hospital procedures typically have both a <em>facility fee</em> (hospital's
+                  charge) and a <em>professional fee</em> (surgeon's charge). Use the filter above to view them separately,
+                  or look at both to estimate your total cost. Your total = facility fee + professional fee.
+                </div>
+              )
+              if (hasInst && !hasProf) return (
+                <div className="dual-fee-notice notice-warning">
+                  These are <strong>facility fees only</strong>. Your surgeon/doctor will bill separately (professional fee).
+                  Your total out-of-pocket will be higher than the amounts shown.
+                </div>
+              )
+              if (!hasInst && hasProf) return (
+                <div className="dual-fee-notice notice-info">
+                  These are <strong>professional fees only</strong> (surgeon/doctor charges). If performed at a hospital or
+                  surgical center, there will also be a facility fee.
+                </div>
+              )
+              return null
+            })()}
 
             {loading ? (
               <div className="loading">Searching prices...</div>
